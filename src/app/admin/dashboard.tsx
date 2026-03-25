@@ -173,20 +173,104 @@ export default function AdminDashboard() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadingThumb, setUploadingThumb] = useState(false)
+  const [bulkFiles, setBulkFiles] = useState<File[]>([])
+  const [showBulkDialog, setShowBulkDialog] = useState(false)
+  const [bulkForm, setBulkForm] = useState({ isPremium: false, category: '', isActive: true })
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+
+    // Single file — existing behavior (for edit dialog)
+    if (files.length === 1) {
+      setUploadingImage(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', files[0])
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (data.success) setGalleryForm(p => ({ ...p, imageUrl: data.url }))
+        else alert('Upload failed: ' + (data.error || 'Unknown error'))
+      } catch (error: any) { alert('Upload error: ' + error.message) }
+      finally { setUploadingImage(false) }
+      return
+    }
+
+    // Multiple files — upload each and create gallery entries
     setUploadingImage(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (data.success) setGalleryForm(p => ({ ...p, imageUrl: data.url }))
-      else alert('Upload failed: ' + (data.error || 'Unknown error'))
+      const results: any[] = []
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (data.success) results.push(data.url)
+      }
+
+      // Create gallery entries for all uploaded images
+      const baseTitle = galleryForm.title || 'Untitled'
+      for (let i = 0; i < results.length; i++) {
+        const res = await fetch('/api/admin/gallery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...galleryForm,
+            title: results.length === 1 ? baseTitle : `${baseTitle} ${i + 1}`,
+            imageUrl: results[i]
+          })
+        })
+        const data = await res.json()
+        if (data.success) setGalleryItems(prev => [data.data, ...prev])
+      }
+
+      setShowAddGallery(false)
+      setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false })
     } catch (error: any) { alert('Upload error: ' + error.message) }
     finally { setUploadingImage(false) }
+  }
+
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setBulkFiles(files)
+    setBulkForm({ isPremium: false, category: '', isActive: true })
+    setShowBulkDialog(true)
+    e.target.value = ''
+  }
+
+  const handleBulkConfirm = async () => {
+    if (bulkForm.isPremium && !bulkForm.category) {
+      alert('Please select a category')
+      return
+    }
+    setShowBulkDialog(false)
+    setUploadingImage(true)
+    try {
+      for (let i = 0; i < bulkFiles.length; i++) {
+        const formData = new FormData()
+        formData.append('file', bulkFiles[i])
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (data.success) {
+          const galleryRes = await fetch('/api/admin/gallery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: bulkFiles[i].name.replace(/\.[^.]+$/, ''),
+              imageUrl: data.url,
+              isActive: bulkForm.isActive,
+              contentType: 'image',
+              isPremium: bulkForm.isPremium,
+              category: bulkForm.isPremium ? bulkForm.category : ''
+            })
+          })
+          const galleryData = await galleryRes.json()
+          if (galleryData.success) setGalleryItems(prev => [galleryData.data, ...prev])
+        }
+      }
+    } catch (error: any) { alert('Bulk upload error: ' + error.message) }
+    finally { setUploadingImage(false); setBulkFiles([]) }
   }
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1789,13 +1873,14 @@ export default function AdminDashboard() {
                       <div className="flex gap-2">
                         <Input value={galleryForm.imageUrl} onChange={e => setGalleryForm(p => ({ ...p, imageUrl: e.target.value }))} className="bg-gray-800 border-gray-700" placeholder={galleryForm.contentType === 'video' ? 'https://... or upload from device' : '/images/... or https://...'} />
                         <label className="cursor-pointer">
-                          <input type="file" accept={galleryForm.contentType === 'video' ? 'video/*' : 'image/*'} className="hidden" onChange={galleryForm.contentType === 'video' ? handleVideoUpload : handleImageUpload} />
+                          <input type="file" accept={galleryForm.contentType === 'video' ? 'video/*' : 'image/*'} multiple={galleryForm.contentType !== 'video'} className="hidden" onChange={galleryForm.contentType === 'video' ? handleVideoUpload : handleImageUpload} />
                           <div className="flex items-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-white whitespace-nowrap">
                             {(galleryForm.contentType === 'video' ? uploadingVideo : uploadingImage) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                             Upload
                           </div>
                         </label>
                       </div>
+                      {galleryForm.contentType !== 'video' && <p className="text-xs text-gray-500">Multiple images select kar sakte ho</p>}
                       {galleryForm.imageUrl && galleryForm.contentType !== 'video' && (
                         <img src={galleryForm.imageUrl} className="mt-2 h-20 w-20 object-cover rounded border border-gray-700" onError={(e:any) => e.target.style.display='none'} />
                       )}
@@ -1952,13 +2037,73 @@ export default function AdminDashboard() {
                 </DialogContent>
               </Dialog>
 
+              {/* Bulk Upload Dialog */}
+              <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+                <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Bulk Upload — {bulkFiles.length} images</DialogTitle>
+                    <DialogDescription className="text-gray-400">Select access type for all selected images.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-1">
+                      <Label>Access *</Label>
+                      <Select value={bulkForm.isPremium ? 'true' : 'false'} onValueChange={val => setBulkForm(p => ({ ...p, isPremium: val === 'true', category: '' }))}>
+                        <SelectTrigger className="bg-gray-800 border-gray-700"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="false">🆓 Free</SelectItem>
+                          <SelectItem value="true">👑 Premium</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {bulkForm.isPremium && (
+                      <div className="space-y-1">
+                        <Label>Category *</Label>
+                        <Select value={bulkForm.category} onValueChange={val => setBulkForm(p => ({ ...p, category: val }))}>
+                          <SelectTrigger className="bg-gray-800 border-gray-700"><SelectValue placeholder="Select category" /></SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {premiumCategories.map(cat => (
+                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      <Label>Status *</Label>
+                      <Select value={bulkForm.isActive ? 'true' : 'false'} onValueChange={val => setBulkForm(p => ({ ...p, isActive: val === 'true' }))}>
+                        <SelectTrigger className="bg-gray-800 border-gray-700"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">✅ Active</SelectItem>
+                          <SelectItem value="false">🔴 Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShowBulkDialog(false); setBulkFiles([]) }} className="border-gray-700 text-white">Cancel</Button>
+                    <Button onClick={handleBulkConfirm} disabled={bulkForm.isPremium && !bulkForm.category}>
+                      Upload {bulkFiles.length} images
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>Gallery Management <span className="text-sm font-normal text-gray-400 ml-2">({galleryItems.length} images)</span></CardTitle>
-                    <Button onClick={() => { setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false }); setShowAddGallery(true) }} className="bg-primary hover:bg-primary/90">
-                      <Plus className="h-4 w-4 mr-2" /> Add content
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={() => { setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false }); setShowAddGallery(true) }} className="bg-primary hover:bg-primary/90">
+                        <Plus className="h-4 w-4 mr-2" /> Add content
+                      </Button>
+                      <label className="cursor-pointer">
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleBulkUpload} />
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm text-white whitespace-nowrap">
+                          {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          Bulk Upload
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

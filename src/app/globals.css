@@ -353,6 +353,15 @@
   text-shadow: 0 0 10px oklch(0.55 0.25 25 / 0.3);
 }
 
+/* Content Protection - Images & Videos */
+img, video {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: auto;
+}
+
 /* Admin Panel Dark Styles */
 .admin-panel input,
 .admin-panel select,

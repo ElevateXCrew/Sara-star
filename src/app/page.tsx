@@ -140,8 +140,8 @@ export default function Home() {
                 High Class Independent Escort in Birmingham
               </h2>
               <p className="text-2xl font-bold tracking-tight text-muted-foreground leading-relaxed text-center">
-                Me a very sexy girl with a lot of experience in fucking. 
-          So many beautiful memories and amazing moments are waiting for you.
+              I’m a very sexy, confident girl with plenty of experience. 
+            So many beautiful memories and amazing moments are waiting for you.
               </p>
               <div className="grid grid-cols-2 gap-6 pt-4">
                 <div className="space-y-2">

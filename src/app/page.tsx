@@ -64,10 +64,10 @@ export default function Home() {
   ]
 
   const galleryItems = [
-    { src: '/images/gallery-1.png', heading: 'I’m all yours.', button: 'Taste the thrill' },
-    { src: '/images/gallery-2.png', heading: 'Don’t stop now.', button: 'Touch me here…' },
-    { src: '/images/gallery-3.png', heading: 'Hold me tight.', button: 'Feeling naughty?' },
-    { src: '/images/gallery-4.png', heading: 'Can’t resist me.', button: 'Lets get wild.' }
+    { src: '/images/gallery-1.png', heading: '', button: '' },
+    { src: '/images/gallery-2.png', heading: '', button: '' },
+    { src: '/images/gallery-3.png', heading: '', button: '' },
+    { src: '/images/gallery-4.png', heading: '', button: '' }
   ]
 
   const scrollToSection = (id: string) => {
@@ -222,10 +222,6 @@ export default function Home() {
                   <h3 className="text-white text-3xl font-bold transform -translate-y-10 group-hover:translate-y-0 transition-all duration-700 delay-100">
                     {item.heading}
                   </h3>
-                  <Button variant="secondary" size="lg" className="bg-primary text-white shadow-[0_0_40px_rgba(220,38,38,1)] transform scale-0 group-hover:scale-100 transition-all duration-500 delay-200">
-                    <span className="mr-2 text-2xl emoji-pulse">💋</span>
-                    {item.button}
-                  </Button>
                 </div>
               </div>
             ))}

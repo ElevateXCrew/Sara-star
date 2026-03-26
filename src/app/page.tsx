@@ -181,10 +181,6 @@ export default function Home() {
                   <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                     <Heart className="h-6 w-6 text-primary" />
                   </div>
-                  <div>
-                    <div className="font-semibold">Ready to fuck me....</div>
-                    <div className="text-sm text-muted-foreground">Honey 💋</div>
-                  </div>
                 </div>
               </div>
             </div>

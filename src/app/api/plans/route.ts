@@ -9,10 +9,16 @@ export async function GET(request: NextRequest) {
     })
 
     // Parse features from JSON
-    const plansWithParsedFeatures = plans.map(plan => ({
-      ...plan,
-      features: JSON.parse(plan.features)
-    }))
+    const plansWithParsedFeatures = plans.map(plan => {
+      const discountedPrice = plan.discountPercent > 0
+        ? parseFloat((plan.price * (1 - plan.discountPercent / 100)).toFixed(2))
+        : null
+      return {
+        ...plan,
+        features: JSON.parse(plan.features),
+        discountedPrice,
+      }
+    })
 
     return NextResponse.json({
       success: true,

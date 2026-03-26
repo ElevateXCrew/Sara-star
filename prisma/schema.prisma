@@ -57,6 +57,7 @@ model Plan {
   isActive    Boolean  @default(true)
   stripePriceId String? @unique // Stripe Price ID
   revenue     Float    @default(0) // Total revenue from this plan
+  discountPercent Float @default(0) // Discount percentage (0-100)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

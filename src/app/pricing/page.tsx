@@ -24,6 +24,8 @@ interface Plan {
   duration: string
   features: string[]
   isActive: boolean
+  discountPercent: number
+  discountedPrice: number | null
 }
 
 interface FAQ {
@@ -281,10 +283,25 @@ export default function PricingPage() {
                       <CardTitle className="text-2xl text-white">{plan.name}</CardTitle>
                       <CardDescription>
                         <div className="mt-4">
-                          <span className="text-4xl font-bold text-white">
-                            {plan.currency}{plan.price}
-                          </span>
-                          <span className="text-muted-foreground">/{plan.duration}</span>
+                          {plan.discountedPrice ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-4xl font-bold text-white">{plan.currency}{plan.discountedPrice}</span>
+                                <span className="text-muted-foreground">/{plan.duration}</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-sm line-through text-muted-foreground">{plan.currency}{plan.price}</span>
+                                <span className="text-xs bg-green-600/20 text-green-400 px-2 py-0.5 rounded-full font-semibold">{plan.discountPercent}% OFF</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="text-4xl font-bold text-white">
+                                {plan.currency}{plan.price}
+                              </span>
+                              <span className="text-muted-foreground">/{plan.duration}</span>
+                            </div>
+                          )}
                         </div>
                       </CardDescription>
                     </CardHeader>

@@ -325,6 +325,16 @@ export default function AdminDashboard() {
   const [createSubForm, setCreateSubForm] = useState({ userId: '', planId: '', startDate: '', endDate: '' })
   const [createSubLoading, setCreateSubLoading] = useState(false)
 
+  // Plans management state
+  const [adminPlans, setAdminPlans] = useState<any[]>([])
+  const [plansLoading, setPlansLoading] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<any | null>(null)
+  const [showAddPlan, setShowAddPlan] = useState(false)
+  const [planActionLoading, setPlanActionLoading] = useState(false)
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
+  const emptyPlanForm = { name: '', price: '', currency: 'USD', duration: 'monthly', features: '', isActive: true, discountPercent: '0' }
+  const [planForm, setPlanForm] = useState(emptyPlanForm)
+
   // Fetch admin auth
   useEffect(() => {
     fetchAdmin()
@@ -340,6 +350,7 @@ export default function AdminDashboard() {
       if (activeSection === 'users') fetchUsers(1, '')
       if (activeSection === 'subscriptions') { fetchSubscriptions(1, 'all'); fetchPlansAndUsers() }
       if (activeSection === 'gallery') fetchGallery()
+      if (activeSection === 'plans') fetchAdminPlans()
     }
   }, [activeSection, admin, timeRange, metricType])
 
@@ -641,6 +652,46 @@ export default function AdminDashboard() {
     } catch (error) {}
   }
 
+  const fetchAdminPlans = async () => {
+    setPlansLoading(true)
+    try {
+      const res = await fetch('/api/admin/plans')
+      const data = await res.json()
+      if (data.success) setAdminPlans(data.plans)
+    } catch {}
+    finally { setPlansLoading(false) }
+  }
+
+  const handleSavePlan = async () => {
+    setPlanActionLoading(true)
+    try {
+      const features = planForm.features.split('\n').map(f => f.trim()).filter(Boolean)
+      const body = { ...planForm, price: parseFloat(planForm.price), discountPercent: parseFloat(planForm.discountPercent || '0'), features }
+      const isEdit = !!editingPlan
+      const url = isEdit ? `/api/admin/plans?id=${editingPlan.id}` : '/api/admin/plans'
+      const res = await fetch(url, { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (data.success) {
+        if (isEdit) setAdminPlans(prev => prev.map(p => p.id === editingPlan.id ? data.plan : p))
+        else setAdminPlans(prev => [...prev, data.plan])
+        setEditingPlan(null)
+        setShowAddPlan(false)
+        setPlanForm(emptyPlanForm)
+      } else { alert(data.error || 'Failed') }
+    } catch (e: any) { alert(e.message) }
+    finally { setPlanActionLoading(false) }
+  }
+
+  const handleDeletePlan = async () => {
+    if (!deletingPlanId) return
+    setPlanActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/plans?id=${deletingPlanId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) { setAdminPlans(prev => prev.filter(p => p.id !== deletingPlanId)); setDeletingPlanId(null) }
+    } catch {}
+    finally { setPlanActionLoading(false) }
+  }
   const getUserSubStatus = (sub: any) => {
     if (sub.status !== 'approved') return sub.status
     if (sub.endDate && new Date(sub.endDate) < new Date()) return 'expired'
@@ -702,6 +753,7 @@ export default function AdminDashboard() {
                 { id: 'gallery', label: 'Gallery', icon: Grid3x3 },
                 { id: 'users', label: 'Users', icon: Users },
                 { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
+                { id: 'plans', label: 'Plan Controls', icon: Settings },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -2551,6 +2603,242 @@ export default function AdminDashboard() {
                     </>
                   ) : (
                     <p className="text-center py-12 text-muted-foreground">No subscriptions found</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Plans Section */}
+          {activeSection === 'plans' && (
+            <div className="space-y-6">
+              {/* Add/Edit Plan Dialog */}
+              <Dialog open={showAddPlan || !!editingPlan} onOpenChange={open => { if (!open) { setShowAddPlan(false); setEditingPlan(null); setPlanForm(emptyPlanForm) } }}>
+                <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>{editingPlan ? 'Edit Plan' : 'Add New Plan'}</DialogTitle>
+                    <DialogDescription className="text-gray-400">Changes will reflect on the pricing page immediately.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Plan Name *</Label>
+                        <Input value={planForm.name} onChange={e => setPlanForm(p => ({ ...p, name: e.target.value }))} className="bg-gray-800 border-gray-700" placeholder="e.g. Basic, Premium, VIP" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Currency</Label>
+                        <Input value={planForm.currency} onChange={e => setPlanForm(p => ({ ...p, currency: e.target.value }))} className="bg-gray-800 border-gray-700" placeholder="USD" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Original Price *</Label>
+                        <Input type="number" min="0" step="0.01" value={planForm.price} onChange={e => setPlanForm(p => ({ ...p, price: e.target.value }))} className="bg-gray-800 border-gray-700" placeholder="0.00" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Duration</Label>
+                        <Select value={planForm.duration} onValueChange={val => setPlanForm(p => ({ ...p, duration: val }))}>
+                          <SelectTrigger className="bg-gray-800 border-gray-700"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="lifetime">Lifetime</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Discount % <span className="text-gray-400 text-xs">(0 = no discount)</span></Label>
+                      <div className="flex items-center gap-3">
+                        <Input type="number" min="0" max="100" step="1" value={planForm.discountPercent} onChange={e => setPlanForm(p => ({ ...p, discountPercent: e.target.value }))} className="bg-gray-800 border-gray-700 w-28" />
+                        {parseFloat(planForm.discountPercent) > 0 && parseFloat(planForm.price) > 0 && (
+                          <div className="text-sm">
+                            <span className="line-through text-gray-500">{planForm.currency}{parseFloat(planForm.price).toFixed(2)}</span>
+                            <span className="ml-2 text-green-400 font-bold">
+                              {planForm.currency}{(parseFloat(planForm.price) * (1 - parseFloat(planForm.discountPercent) / 100)).toFixed(2)}
+                            </span>
+                            <span className="ml-2 text-xs bg-green-600/20 text-green-400 px-1.5 py-0.5 rounded">{planForm.discountPercent}% OFF</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Features <span className="text-gray-400 text-xs">(one per line)</span></Label>
+                      <textarea
+                        value={planForm.features}
+                        onChange={e => setPlanForm(p => ({ ...p, features: e.target.value }))}
+                        rows={5}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder={"Access to premium gallery\nHigh-quality images\nPriority support"}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Status</Label>
+                      <Select value={planForm.isActive ? 'true' : 'false'} onValueChange={val => setPlanForm(p => ({ ...p, isActive: val === 'true' }))}>
+                        <SelectTrigger className="bg-gray-800 border-gray-700"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">Active</SelectItem>
+                          <SelectItem value="false">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShowAddPlan(false); setEditingPlan(null); setPlanForm(emptyPlanForm) }} className="border-gray-700 text-white">Cancel</Button>
+                    <Button onClick={handleSavePlan} disabled={planActionLoading || !planForm.name || !planForm.price}>
+                      {planActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : editingPlan ? 'Save Changes' : 'Add Plan'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Delete Plan Dialog */}
+              <Dialog open={!!deletingPlanId} onOpenChange={open => !open && setDeletingPlanId(null)}>
+                <DialogContent className="bg-gray-900 border-gray-700 text-white">
+                  <DialogHeader>
+                    <DialogTitle>Delete Plan</DialogTitle>
+                    <DialogDescription className="text-gray-400">Are you sure? This will permanently delete this plan.</DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDeletingPlanId(null)} className="border-gray-700 text-white">Cancel</Button>
+                    <Button variant="destructive" onClick={handleDeletePlan} disabled={planActionLoading}>
+                      {planActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Plan Controls <span className="text-sm font-normal text-gray-400 ml-2">({adminPlans.length} plans)</span></CardTitle>
+                    <Button onClick={() => { setPlanForm(emptyPlanForm); setShowAddPlan(true) }} className="bg-primary hover:bg-primary/90">
+                      <Plus className="h-4 w-4 mr-2" /> Add Plan
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {plansLoading ? (
+                    <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                  ) : adminPlans.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {adminPlans.map(plan => {
+                        const discounted = plan.discountPercent > 0
+                          ? (plan.price * (1 - plan.discountPercent / 100)).toFixed(2)
+                          : null
+                        return (
+                          <div key={plan.id} className="bg-gray-800 rounded-xl border border-gray-700 p-4 space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="font-bold text-lg text-white">{plan.name}</h3>
+                                <Badge variant={plan.isActive ? 'default' : 'secondary'} className="text-xs mt-1">{plan.isActive ? 'Active' : 'Inactive'}</Badge>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" className="h-8 w-8 p-0 border-gray-600 text-white hover:bg-gray-700"
+                                  onClick={() => {
+                                    setEditingPlan(plan)
+                                    setPlanForm({
+                                      name: plan.name,
+                                      price: String(plan.price),
+                                      currency: plan.currency,
+                                      duration: plan.duration,
+                                      features: Array.isArray(plan.features) ? plan.features.join('\n') : '',
+                                      isActive: plan.isActive,
+                                      discountPercent: String(plan.discountPercent || 0),
+                                    })
+                                  }}
+                                ><Edit className="h-3 w-3" /></Button>
+                                <Button size="sm" variant="outline" className="h-8 w-8 p-0 border-gray-600 text-red-400 hover:bg-red-400/10"
+                                  onClick={() => setDeletingPlanId(plan.id)}
+                                ><Trash2 className="h-3 w-3" /></Button>
+                              </div>
+                            </div>
+
+                            {/* Price Display */}
+                            <div className="space-y-1">
+                              {discounted ? (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-2xl font-bold text-green-400">{plan.currency}{discounted}</span>
+                                  <span className="text-sm line-through text-gray-500">{plan.currency}{plan.price}</span>
+                                  <span className="text-xs bg-green-600/20 text-green-400 px-1.5 py-0.5 rounded font-semibold">{plan.discountPercent}% OFF</span>
+                                </div>
+                              ) : (
+                                <span className="text-2xl font-bold text-white">{plan.currency}{plan.price}</span>
+                              )}
+                              <p className="text-xs text-gray-400">per {plan.duration}</p>
+                            </div>
+
+                            {/* Quick Price Controls */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">Price:</span>
+                              <Button size="sm" variant="outline" className="h-7 px-2 border-gray-600 text-white hover:bg-gray-700 text-xs"
+                                onClick={async () => {
+                                  const newPrice = Math.max(0, plan.price - 1)
+                                  const res = await fetch(`/api/admin/plans?id=${plan.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: newPrice }) })
+                                  const d = await res.json()
+                                  if (d.success) setAdminPlans(prev => prev.map(p => p.id === plan.id ? d.plan : p))
+                                }}
+                              >-1</Button>
+                              <Button size="sm" variant="outline" className="h-7 px-2 border-gray-600 text-white hover:bg-gray-700 text-xs"
+                                onClick={async () => {
+                                  const newPrice = plan.price + 1
+                                  const res = await fetch(`/api/admin/plans?id=${plan.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: newPrice }) })
+                                  const d = await res.json()
+                                  if (d.success) setAdminPlans(prev => prev.map(p => p.id === plan.id ? d.plan : p))
+                                }}
+                              >+1</Button>
+                              <Button size="sm" variant="outline" className="h-7 px-2 border-gray-600 text-white hover:bg-gray-700 text-xs"
+                                onClick={async () => {
+                                  const newPrice = plan.price + 5
+                                  const res = await fetch(`/api/admin/plans?id=${plan.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: newPrice }) })
+                                  const d = await res.json()
+                                  if (d.success) setAdminPlans(prev => prev.map(p => p.id === plan.id ? d.plan : p))
+                                }}
+                              >+5</Button>
+                              <Button size="sm" variant="outline" className="h-7 px-2 border-gray-600 text-white hover:bg-gray-700 text-xs"
+                                onClick={async () => {
+                                  const newPrice = Math.max(0, plan.price - 5)
+                                  const res = await fetch(`/api/admin/plans?id=${plan.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: newPrice }) })
+                                  const d = await res.json()
+                                  if (d.success) setAdminPlans(prev => prev.map(p => p.id === plan.id ? d.plan : p))
+                                }}
+                              >-5</Button>
+                            </div>
+
+                            {/* Quick Discount Controls */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">Discount:</span>
+                              {[0, 10, 20, 30, 50].map(pct => (
+                                <Button key={pct} size="sm"
+                                  variant={plan.discountPercent === pct ? 'default' : 'outline'}
+                                  className={`h-7 px-2 text-xs ${ plan.discountPercent === pct ? 'bg-primary' : 'border-gray-600 text-white hover:bg-gray-700' }`}
+                                  onClick={async () => {
+                                    const res = await fetch(`/api/admin/plans?id=${plan.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discountPercent: pct }) })
+                                    const d = await res.json()
+                                    if (d.success) setAdminPlans(prev => prev.map(p => p.id === plan.id ? d.plan : p))
+                                  }}
+                                >{pct === 0 ? 'None' : `${pct}%`}</Button>
+                              ))}
+                            </div>
+
+                            {/* Features */}
+                            <div className="space-y-1">
+                              <p className="text-xs text-gray-400 font-medium">Features:</p>
+                              <ul className="space-y-0.5">
+                                {(Array.isArray(plan.features) ? plan.features : []).map((f: string, i: number) => (
+                                  <li key={i} className="text-xs text-gray-300 flex items-start gap-1">
+                                    <CheckCircle className="h-3 w-3 text-green-400 mt-0.5 flex-shrink-0" />{f}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-center py-12 text-muted-foreground">No plans found. Add your first plan.</p>
                   )}
                 </CardContent>
               </Card>

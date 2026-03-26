@@ -12,58 +12,32 @@ import { Check, Star, ArrowRight, Sparkles, Crown, Zap, Heart } from 'lucide-rea
 import Link from 'next/link'
 
 export default function Home() {
+  const [plans, setPlans] = useState<any[]>([])
 
+  useEffect(() => {
+    fetch('/api/plans')
+      .then(r => r.json())
+      .then(d => { if (d.plans) setPlans(d.plans) })
+      .catch(() => {})
+  }, [])
 
-  const plans = [
-    {
-      name: 'Basic',
-      price: 100,
-      duration: 'monthly',
-      icon: Sparkles,
-      features: [
-        'Access to basic gallery',
-        'Standard quality images',
-        'Email support',
-        '1 download per day',
-        'Ad-free experience'
-      ],
-      color: 'from-amber-500 to-orange-500',
-      popular: false
-    },
-    {
-      name: 'Premium',
-      price: 150,
-      duration: 'monthly',
-      icon: Crown,
-      features: [
-        'Access to premium gallery',
-        'High-quality images',
-        'Priority support',
-        'Unlimited downloads',
-        'Exclusive content',
-        'Early access to new features'
-      ],
-      color: 'from-purple-500 to-pink-500',
-      popular: true
-    },
-    {
-      name: 'VIP',
-      price: 200,
-      duration: 'monthly',
-      icon: Zap,
-      features: [
-        'All Premium features',
-        'Ultra HD images',
-        '24/7 dedicated support',
-        'Custom image requests',
-        'Personalized content',
-        'Private gallery access',
-        'Exclusive events'
-      ],
-      color: 'from-cyan-500 to-blue-500',
-      popular: false
-    }
-  ]
+  const getIconForPlan = (name: string) => {
+    const n = name.toLowerCase()
+    if (n.includes('basic')) return Sparkles
+    if (n.includes('premium')) return Crown
+    if (n.includes('vip')) return Zap
+    return Sparkles
+  }
+
+  const getColorForPlan = (name: string) => {
+    const n = name.toLowerCase()
+    if (n.includes('basic')) return 'from-amber-500 to-orange-500'
+    if (n.includes('premium')) return 'from-purple-500 to-pink-500'
+    if (n.includes('vip')) return 'from-cyan-500 to-blue-500'
+    return 'from-gray-500 to-gray-600'
+  }
+
+  const popularPlan = plans.find(p => p.name.toLowerCase().includes('premium')) || plans[1]
 
   const testimonials = [
     {
@@ -406,38 +380,56 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {plans.map((plan, index) => {
-              const Icon = plan.icon
+              const Icon = getIconForPlan(plan.name)
+              const color = getColorForPlan(plan.name)
+              const isPopular = popularPlan?.id === plan.id
+              const features = Array.isArray(plan.features) ? plan.features : []
               return (
                 <Card
-                  key={plan.name}
+                  key={plan.id}
                   className={`relative ${
-                    plan.popular
+                    isPopular
                       ? 'border-primary shadow-2xl scale-105 z-10'
                       : 'border-border'
                   } animate-in fade-in slide-in-from-bottom-8 duration-1000`}
                   style={{ animationDelay: `${index * 150}ms` }}
                 >
-                  {plan.popular && (
+                  {isPopular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                      <div className={`bg-gradient-to-r ${plan.color} text-white px-4 py-1 rounded-full text-sm font-medium`}>
+                      <div className={`bg-gradient-to-r ${color} text-white px-4 py-1 rounded-full text-sm font-medium`}>
                         Most Popular
                       </div>
                     </div>
                   )}
                   <CardHeader className="text-center pb-8">
-                    <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center`}>
+                    <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center`}>
                       <Icon className="h-8 w-8 text-white" />
                     </div>
                     <CardTitle className="text-2xl">{plan.name}</CardTitle>
                     <CardDescription>
                       <div className="mt-4">
-                        <span className="text-4xl font-bold">£{plan.price}</span>
-                        <span className="text-muted-foreground">/{plan.duration}</span>
+                        {plan.discountedPrice ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-4xl font-bold">{plan.currency}{plan.discountedPrice}</span>
+                              <span className="text-muted-foreground">/{plan.duration}</span>
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-sm line-through text-muted-foreground">{plan.currency}{plan.price}</span>
+                              <span className="text-xs bg-green-600/20 text-green-500 px-2 py-0.5 rounded-full font-semibold">{plan.discountPercent}% OFF</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-4xl font-bold">{plan.currency}{plan.price}</span>
+                            <span className="text-muted-foreground">/{plan.duration}</span>
+                          </div>
+                        )}
                       </div>
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {plan.features.map((feature, idx) => (
+                    {features.map((feature: string, idx: number) => (
                       <div key={idx} className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                         <span className="text-sm">{feature}</span>
@@ -447,16 +439,14 @@ export default function Home() {
                   <CardFooter>
                     <Button
                       className={`w-full ${
-                        plan.popular
-                          ? `bg-gradient-to-r ${plan.color} hover:opacity-90`
-                          : ''
+                        isPopular ? `bg-gradient-to-r ${color} hover:opacity-90` : ''
                       }`}
-                      variant={plan.popular ? 'default' : 'outline'}
+                      variant={isPopular ? 'default' : 'outline'}
                       size="lg"
                       asChild
                     >
                       <Link href="/signup">
-                        {plan.popular ? 'Get Started' : 'Choose Plan'}
+                        {isPopular ? 'Get Started' : 'Choose Plan'}
                       </Link>
                     </Button>
                   </CardFooter>

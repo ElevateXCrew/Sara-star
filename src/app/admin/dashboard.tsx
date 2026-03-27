@@ -2261,7 +2261,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between">
                     <CardTitle>Gallery Management <span className="text-sm font-normal text-gray-400 ml-2">({galleryItems.length} images)</span></CardTitle>
                     <div className="flex gap-2">
-                      <Button onClick={() => { setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false }); setShowAddGallery(true) }} className="bg-primary hover:bg-primary/90">
+                      <Button onClick={() => { setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false, allowedPlanIds: '[]' }); setShowAddGallery(true) }} className="bg-primary hover:bg-primary/90">
                         <Plus className="h-4 w-4 mr-2" /> Add content
                       </Button>
                       <label className="cursor-pointer">
@@ -2298,10 +2298,18 @@ export default function AdminDashboard() {
                           </div>
                           <div className="p-2">
                             <p className="text-sm font-medium truncate">{item.title}</p>
-                            <div className="flex gap-1 mt-1">
+                            <div className="flex gap-1 mt-1 flex-wrap">
                               <Badge variant="outline" className="text-xs px-1 py-0">{item.contentType || 'image'}</Badge>
                               <Badge variant={item.isPremium ? 'default' : 'secondary'} className="text-xs px-1 py-0">{item.isPremium ? 'Premium' : 'Free'}</Badge>
                             </div>
+                            {item.isPremium && (() => {
+                              try {
+                                const ids: string[] = JSON.parse(item.allowedPlanIds || '[]')
+                                if (ids.length === 0) return <p className="text-xs text-green-400 mt-1">✓ All plans</p>
+                                const names = ids.map(id => plans.find((p: any) => p.id === id)?.name || id)
+                                return <p className="text-xs text-amber-400 mt-1 truncate" title={names.join(', ')}>🔒 {names.join(', ')}</p>
+                              } catch { return null }
+                            })()}
                           </div>
                           <div className="absolute top-2 right-2 hidden group-hover:flex gap-1">
                             <Button

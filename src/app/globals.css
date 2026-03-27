@@ -363,6 +363,11 @@ img, video {
 }
 
 /* Admin Panel Dark Styles */
+.admin-panel,
+.admin-panel * {
+  outline: none !important;
+}
+
 .admin-panel input,
 .admin-panel select,
 .admin-panel textarea {

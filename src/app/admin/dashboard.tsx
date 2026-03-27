@@ -169,7 +169,7 @@ export default function AdminDashboard() {
     { id: 'special', name: 'Special Requests' },
   ]
 
-  const [galleryForm, setGalleryForm] = useState({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false })
+  const [galleryForm, setGalleryForm] = useState({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false, allowedPlanIds: '[]' })
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadingThumb, setUploadingThumb] = useState(false)
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
       }
 
       setShowAddGallery(false)
-      setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false })
+      setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false, allowedPlanIds: '[]' })
     } catch (error: any) { alert('Upload error: ' + error.message) }
     finally { setUploadingImage(false) }
   }
@@ -349,7 +349,7 @@ export default function AdminDashboard() {
       if (activeSection === 'revenue') fetchRevenue()
       if (activeSection === 'users') fetchUsers(1, '')
       if (activeSection === 'subscriptions') { fetchSubscriptions(1, 'all'); fetchPlansAndUsers() }
-      if (activeSection === 'gallery') fetchGallery()
+      if (activeSection === 'gallery') { fetchGallery(); fetchPlansAndUsers() }
       if (activeSection === 'plans') fetchAdminPlans()
     }
   }, [activeSection, admin, timeRange, metricType])
@@ -508,7 +508,7 @@ export default function AdminDashboard() {
       if (data.success) {
         setGalleryItems(prev => [data.data, ...prev])
         setShowAddGallery(false)
-        setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false })
+        setGalleryForm({ title: '', description: '', imageUrl: '', thumbnailUrl: '', category: '', isActive: true, contentType: 'image', isPremium: false, allowedPlanIds: '[]' })
       } else {
         alert('Add failed: ' + (data.error || 'Unknown error'))
       }
@@ -1968,6 +1968,38 @@ export default function AdminDashboard() {
                         </Select>
                       </div>
                     )}
+                    {/* Plan Access Control */}
+                    {galleryForm.isPremium && (
+                      <div className="space-y-1">
+                        <Label>Kin Plans Ko Dikhao <span className="text-gray-400 text-xs">(koi select na karo = sab plans)</span></Label>
+                        <div className="flex flex-wrap gap-2 p-3 bg-gray-800 border border-gray-700 rounded-md">
+                          {plans.map((plan: any) => {
+                            const selected: string[] = (() => { try { return JSON.parse(galleryForm.allowedPlanIds) } catch { return [] } })()
+                            const isChecked = selected.includes(plan.id)
+                            return (
+                              <button
+                                key={plan.id}
+                                type="button"
+                                onClick={() => {
+                                  const current: string[] = (() => { try { return JSON.parse(galleryForm.allowedPlanIds) } catch { return [] } })()
+                                  const updated = isChecked ? current.filter(id => id !== plan.id) : [...current, plan.id]
+                                  setGalleryForm(p => ({ ...p, allowedPlanIds: JSON.stringify(updated) }))
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                  isChecked
+                                    ? 'bg-primary border-primary text-white'
+                                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-400'
+                                }`}
+                              >
+                                {isChecked ? '✓ ' : ''}{plan.name} (${plan.price})
+                              </button>
+                            )
+                          })}
+                          {plans.length === 0 && <p className="text-xs text-gray-500">Pehle plans load karo</p>}
+                        </div>
+                        {(() => { try { const s = JSON.parse(galleryForm.allowedPlanIds); return s.length > 0 ? <p className="text-xs text-amber-400">⚠️ Sirf {s.length} selected plan(s) wale users dekh sakte hain</p> : <p className="text-xs text-green-400">✓ Sab premium users dekh sakte hain</p> } catch { return null } })()}
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <Label>Title *</Label>
                       <Input value={galleryForm.title} onChange={e => setGalleryForm(p => ({ ...p, title: e.target.value }))} className="bg-gray-800 border-gray-700" placeholder="Content title" />
@@ -2103,6 +2135,38 @@ export default function AdminDashboard() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {/* Plan Access Control - Edit */}
+                    {galleryForm.isPremium && (
+                      <div className="space-y-1">
+                        <Label>Kin Plans Ko Dikhao <span className="text-gray-400 text-xs">(koi select na karo = sab plans)</span></Label>
+                        <div className="flex flex-wrap gap-2 p-3 bg-gray-800 border border-gray-700 rounded-md">
+                          {plans.map((plan: any) => {
+                            const selected: string[] = (() => { try { return JSON.parse(galleryForm.allowedPlanIds) } catch { return [] } })()
+                            const isChecked = selected.includes(plan.id)
+                            return (
+                              <button
+                                key={plan.id}
+                                type="button"
+                                onClick={() => {
+                                  const current: string[] = (() => { try { return JSON.parse(galleryForm.allowedPlanIds) } catch { return [] } })()
+                                  const updated = isChecked ? current.filter(id => id !== plan.id) : [...current, plan.id]
+                                  setGalleryForm(p => ({ ...p, allowedPlanIds: JSON.stringify(updated) }))
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                  isChecked
+                                    ? 'bg-primary border-primary text-white'
+                                    : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-400'
+                                }`}
+                              >
+                                {isChecked ? '✓ ' : ''}{plan.name} (${plan.price})
+                              </button>
+                            )
+                          })}
+                          {plans.length === 0 && <p className="text-xs text-gray-500">Pehle plans load karo</p>}
+                        </div>
+                        {(() => { try { const s = JSON.parse(galleryForm.allowedPlanIds); return s.length > 0 ? <p className="text-xs text-amber-400">⚠️ Sirf {s.length} selected plan(s) wale users dekh sakte hain</p> : <p className="text-xs text-green-400">✓ Sab premium users dekh sakte hain</p> } catch { return null } })()}
                       </div>
                     )}
                     <div className="space-y-1">
@@ -2245,7 +2309,7 @@ export default function AdminDashboard() {
                               className="h-7 w-7 p-0 bg-gray-900/90"
                               onClick={() => {
                                 setEditingGallery(item)
-                                setGalleryForm({ title: item.title, description: item.description || '', imageUrl: item.imageUrl, thumbnailUrl: item.thumbnailUrl || '', category: item.category || '', isActive: item.isActive, contentType: item.contentType || 'image', isPremium: item.isPremium || false })
+                                setGalleryForm({ title: item.title, description: item.description || '', imageUrl: item.imageUrl, thumbnailUrl: item.thumbnailUrl || '', category: item.category || '', isActive: item.isActive, contentType: item.contentType || 'image', isPremium: item.isPremium || false, allowedPlanIds: item.allowedPlanIds || '[]' })
                               }}
                             >
                               <Edit className="h-3 w-3" />

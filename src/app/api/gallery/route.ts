@@ -4,12 +4,12 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret'
 
-function getUserId(request: NextRequest): string | null {
+function getUserInfo(request: NextRequest): { userId: string } | null {
   try {
     const token = request.cookies.get('auth-token')?.value
     if (!token) return null
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
-    return decoded.userId
+    return { userId: decoded.userId }
   } catch {
     return null
   }
@@ -31,6 +31,23 @@ export async function GET(request: NextRequest) {
     if (premiumParam === 'true') where.isPremium = true
     else where.isPremium = false
 
+    const userInfo = getUserInfo(request)
+
+    // Get user's active plan ID if logged in
+    let userPlanId: string | null = null
+    if (userInfo) {
+      const activeSub = await db.subscription.findFirst({
+        where: {
+          userId: userInfo.userId,
+          status: 'approved',
+          OR: [{ endDate: null }, { endDate: { gt: new Date() } }]
+        },
+        select: { planId: true },
+        orderBy: { createdAt: 'desc' }
+      })
+      userPlanId = activeSub?.planId ?? null
+    }
+
     const [items, total] = await Promise.all([
       db.gallery.findMany({
         where,
@@ -46,6 +63,7 @@ export async function GET(request: NextRequest) {
           category: true,
           contentType: true,
           isPremium: true,
+          allowedPlanIds: true,
           displayOrder: true,
           views: true,
           likes: true,
@@ -55,7 +73,7 @@ export async function GET(request: NextRequest) {
       db.gallery.count({ where })
     ])
 
-    const userId = getUserId(request)
+    const userId = userInfo?.userId ?? null
     let likedSet = new Set<string>()
     if (userId && items.length > 0) {
       const ids = items.map(i => i.id)
@@ -66,12 +84,23 @@ export async function GET(request: NextRequest) {
       likedSet = new Set(likedRows.map((r: any) => r.galleryId))
     }
 
-    const data = items.map(item => {
-      const isBase64Video = item.contentType === 'video' && item.imageUrl?.startsWith('data:')
+    // Filter by plan access: if allowedPlanIds is set, only show to matching plan users
+    const filteredItems = items.filter(item => {
+      if (!item.allowedPlanIds) return true // no restriction = show to all
+      try {
+        const allowed: string[] = JSON.parse(item.allowedPlanIds)
+        if (allowed.length === 0) return true // empty array = show to all
+        return userPlanId ? allowed.includes(userPlanId) : false
+      } catch {
+        return true
+      }
+    })
 
+    const data = filteredItems.map(item => {
+      const isBase64Video = item.contentType === 'video' && item.imageUrl?.startsWith('data:')
       return {
         ...item,
-        // base64 video (old) -> stream URL, disk video -> use as-is
+        allowedPlanIds: undefined, // don't expose to client
         imageUrl: isBase64Video ? `/api/gallery/stream/${item.id}` : item.imageUrl,
         thumbnailUrl: item.thumbnailUrl || null,
         liked: likedSet.has(item.id)
@@ -81,7 +110,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+      pagination: { page, limit, total: filteredItems.length, totalPages: Math.ceil(filteredItems.length / limit) }
     })
   } catch (error) {
     console.error('Gallery API error:', error)

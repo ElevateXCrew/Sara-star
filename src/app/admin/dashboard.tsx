@@ -881,6 +881,58 @@ export default function AdminDashboard() {
                     </Card>
                   </div>
 
+                  {/* Device Breakdown */}
+                  {(() => {
+                    const total = (analytics.summary.desktopVisits || 0) + (analytics.summary.mobileVisits || 0) + (analytics.summary.tabletVisits || 0)
+                    const pct = (n: number) => total > 0 ? Math.round((n / total) * 100) : 0
+                    return (
+                      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        <Card className="border border-blue-500/40 bg-blue-500/5">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-400">🖥️ Desktop Visits</CardTitle>
+                            <BarChart3 className="h-5 w-5 text-blue-400" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-blue-400">{(analytics.summary.desktopVisits || 0).toLocaleString()}</div>
+                            <p className="text-xs text-gray-500 mt-1">PC / Laptop users</p>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-400 mb-1"><span>Share</span><span>{pct(analytics.summary.desktopVisits || 0)}%</span></div>
+                              <div className="w-full bg-gray-800 rounded-full h-2"><div className="h-2 rounded-full bg-blue-500" style={{ width: `${pct(analytics.summary.desktopVisits || 0)}%` }} /></div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border border-orange-500/40 bg-orange-500/5">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-400">📱 Mobile Visits</CardTitle>
+                            <Activity className="h-5 w-5 text-orange-400" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-orange-400">{(analytics.summary.mobileVisits || 0).toLocaleString()}</div>
+                            <p className="text-xs text-gray-500 mt-1">Smartphone users</p>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-400 mb-1"><span>Share</span><span>{pct(analytics.summary.mobileVisits || 0)}%</span></div>
+                              <div className="w-full bg-gray-800 rounded-full h-2"><div className="h-2 rounded-full bg-orange-500" style={{ width: `${pct(analytics.summary.mobileVisits || 0)}%` }} /></div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border border-purple-500/40 bg-purple-500/5">
+                          <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-400">💻 Tablet Visits</CardTitle>
+                            <Activity className="h-5 w-5 text-purple-400" />
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-3xl font-bold text-purple-400">{(analytics.summary.tabletVisits || 0).toLocaleString()}</div>
+                            <p className="text-xs text-gray-500 mt-1">Tablet users</p>
+                            <div className="mt-2">
+                              <div className="flex justify-between text-xs text-gray-400 mb-1"><span>Share</span><span>{pct(analytics.summary.tabletVisits || 0)}%</span></div>
+                              <div className="w-full bg-gray-800 rounded-full h-2"><div className="h-2 rounded-full bg-purple-500" style={{ width: `${pct(analytics.summary.tabletVisits || 0)}%` }} /></div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )
+                  })()}
+
                   {/* Row 2 - Revenue & Content */}
                   <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                     <Card>
